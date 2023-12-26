@@ -78,14 +78,14 @@ const editMovie = async (req, res) => {
 const listMovies = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
-    const { userId } = req.user;
+    const { id } = req.user;
     try {
-        const movies = await Movie.find({ userId: userId })
+        const movies = await Movie.find({ userId: id })
             .skip((page - 1) * limit)
             .limit(limit)
             .exec();
         const filteredMovies = movies.map(movie => {
-            const { userId, ...movieDataWithoutUserId } = movie.toObject();
+            const { id, ...movieDataWithoutUserId } = movie.toObject();
             return movieDataWithoutUserId;
         });
         res.status(200).json({
