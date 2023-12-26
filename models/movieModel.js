@@ -10,8 +10,8 @@ const movieSchema = mongoose.Schema({
     required: true,
   },
   poster: {
-    data: Buffer, 
-    contentType: String, 
+    type: String,
+    required: false,
   },
   userId: {
     type: String,

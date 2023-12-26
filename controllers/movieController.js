@@ -1,5 +1,7 @@
 const multer = require("multer");
-const Movie = require("../models/movieModel");
+const fs = require("fs");
+const cloudinary = require('cloudinary').v2;
+const Movie = require('../models/movieModel')
 
 const storage = multer.diskStorage({
     destination: 'uploads',
@@ -22,25 +24,31 @@ const createMovie = async (req, res) => {
                 }
             });
         });
+
         const { title, publishingYear } = req.body;
+
         if (!req.file) {
             return res.status(400).json({ error: true, message: "No file uploaded" });
         }
+
+        // Upload image to Cloudinary
+        const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path);
+        // Delete the temporary file after uploading to Cloudinary
+        fs.unlinkSync(req.file.path);
+
         const newMovie = new Movie({
             title: title,
             publishingYear: publishingYear,
             userId: id,
-            poster: {
-                data: req.file.filename,
-                contentType: req.file.mimetype
-            }
+            poster: cloudinaryResponse.secure_url,
         });
+
         await newMovie.save();
         res.status(201).json({ data: true, error: false });
     } catch (error) {
         res.status(500).json({ data: false, error: true, errMsg: error });
     }
-}
+};
 
 
 // Edit an existing movie
@@ -75,21 +83,32 @@ const editMovie = async (req, res) => {
 };
 
 // List movies with pagination
+
 const listMovies = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
     const { id } = req.user;
+
     try {
         const movies = await Movie.find({ userId: id })
             .skip((page - 1) * limit)
             .limit(limit)
             .exec();
-        const filteredMovies = movies.map(movie => {
-            const { id, ...movieDataWithoutUserId } = movie.toObject();
-            return movieDataWithoutUserId;
+
+        const movieList = movies.map(movie => {
+            const { _id, title, publishingYear, poster } = movie;
+
+            const movieData = {
+                _id,
+                title,
+                publishingYear,
+                poster: poster,
+            };
+            return movieData;
         });
+
         res.status(200).json({
-            movies: filteredMovies,
+            movies: movieList,
             error: false
         });
     } catch (error) {
@@ -100,4 +119,28 @@ const listMovies = async (req, res) => {
     }
 };
 
-module.exports = { createMovie, editMovie, listMovies };
+
+// Get a single movie by its ID
+const getMovieById = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const movie = await Movie.findById(id);
+        if (!movie) {
+            return res.status(404).json({ error: true, message: "Movie not found" });
+        }
+        const { _id, title, publishingYear, poster } = movie;
+        const movieData = {
+            _id: _id,
+            title: title,
+            publishingYear: publishingYear,
+            poster: poster,
+            userId: movie.userId
+        };
+        res.status(200).json({ data: movieData, error: false });
+    } catch (error) {
+        res.status(500).json({ data: false, error: true, errMsg: error });
+    }
+};
+
+
+module.exports = { createMovie, editMovie, listMovies, getMovieById };
