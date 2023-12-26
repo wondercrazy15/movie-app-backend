@@ -6,6 +6,6 @@ const validateToken = require("../middleware/validateTokenHandler")
 
 router.post("/add", validateToken, createMovie);
 router.put("/edit/:id", validateToken, editMovie);
-router.get("/list/:userId", validateToken, listMovies);
+router.get("/list", validateToken, listMovies);
 
 module.exports = router;

@@ -1,34 +1,46 @@
-// movieController.js
+const multer = require("multer");
 const Movie = require("../models/movieModel");
-const upload = require("../config/fileUpload");
+
+const storage = multer.diskStorage({
+    destination: 'uploads',
+    filename: (req, file, cb) => {
+        cb(null, file.originalname);
+    }
+});
+const upload = multer({ storage }).single('poster');
 
 // Create a new movie
 const createMovie = async (req, res) => {
+    const { id } = req.user;
     try {
-        upload(req, res, async (err) => {
-            if (err) {
-                return res.status(400).json({ error: true, message: "Error uploading file" });
-            }
-            const { title, publishingYear, userId } = req.body;
-            if (!req.file) {
-                return res.status(400).json({ error: true, message: "No file uploaded" });
-            }
-            const newMovie = new Movie({
-                title: title,
-                publishingYear: publishingYear,
-                userId: userId,
-                poster: {
-                    data: req.file.filename,
-                    contentType: req.file.mimetype
+        await new Promise((resolve, reject) => {
+            upload(req, res, (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
                 }
             });
-            await newMovie.save();
-            res.status(201).json({ data: true, error: false });
         });
+        const { title, publishingYear } = req.body;
+        if (!req.file) {
+            return res.status(400).json({ error: true, message: "No file uploaded" });
+        }
+        const newMovie = new Movie({
+            title: title,
+            publishingYear: publishingYear,
+            userId: id,
+            poster: {
+                data: req.file.filename,
+                contentType: req.file.mimetype
+            }
+        });
+        await newMovie.save();
+        res.status(201).json({ data: true, error: false });
     } catch (error) {
         res.status(500).json({ data: false, error: true, errMsg: error });
     }
-};
+}
 
 
 // Edit an existing movie
@@ -66,7 +78,7 @@ const editMovie = async (req, res) => {
 const listMovies = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
-    const userId = req.params.userId; 
+    const { userId } = req.user;
     try {
         const movies = await Movie.find({ userId: userId })
             .skip((page - 1) * limit)
